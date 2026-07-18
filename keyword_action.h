@@ -24,11 +24,12 @@ struct KeywordHit {
   bool from_microphone = false;  // true=实时麦；false=离线 WAV
 };
 
-// 单一动作接口：实现 OnKeyword 即可挂到流水线上。
+// 动作接口：关键词命中和 VAD 人声状态都可分发给动作。
 class KeywordAction {
  public:
   virtual ~KeywordAction() = default;
   virtual void OnKeyword(const KeywordHit& hit) = 0;
+  virtual void OnVoiceActivity(bool) {}
 };
 
 // 默认动作：打印「已识别」（当前 demo 行为）。
@@ -46,6 +47,7 @@ class KeywordActionList : public KeywordAction {
  public:
   void Add(std::unique_ptr<KeywordAction> action);
   void OnKeyword(const KeywordHit& hit) override;
+  void OnVoiceActivity(bool has_speech) override;
 
  private:
   std::vector<std::unique_ptr<KeywordAction>> actions_;

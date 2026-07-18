@@ -1,5 +1,6 @@
 #include "keyword_action.h"
 
+#include <chrono>
 #include <iostream>
 #include <utility>
 
@@ -25,6 +26,12 @@ void KeywordActionList::OnKeyword(const KeywordHit& hit) {
   }
 }
 
+void KeywordActionList::OnVoiceActivity(bool has_speech) {
+  for (auto& action : actions_) {
+    action->OnVoiceActivity(has_speech);
+  }
+}
+
 std::unique_ptr<KeywordAction> CreateDefaultKeywordAction(
     const Options& options) {
   // 未来在这里追加其它动作即可，例如：
@@ -32,6 +39,7 @@ std::unique_ptr<KeywordAction> CreateDefaultKeywordAction(
   //   list->Add(std::make_unique<MqttKeywordAction>(...));
   auto list = std::make_unique<KeywordActionList>();
   list->Add(std::make_unique<ConsoleKeywordAction>(options.verbose));
-  list->Add(std::make_unique<SoundTrackingKeywordAction>());
+  list->Add(std::make_unique<SoundTrackingKeywordAction>(
+      std::chrono::seconds(options.session_timeout_seconds)));
   return list;
 }

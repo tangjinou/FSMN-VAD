@@ -33,6 +33,7 @@ struct Options {
   std::string wav;     // 非空则离线读文件
   float min_score = 0.15f;
   float vad_threshold = 0.5f;
+  int session_timeout_seconds = 10;
   bool verbose = false;
 };
 

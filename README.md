@@ -67,6 +67,12 @@ cmake --build build --target run_test  # 等价 make test
 ./mic_demo --vad-threshold 0.4 --verbose
 ```
 
+调整会话无人声超时（默认 `10` 秒）：
+
+```bash
+./mic_demo --session-timeout 15 --verbose
+```
+
 ## 离线自检
 
 ```bash
@@ -77,10 +83,13 @@ cmake --build build --target run_test
 
 ```text
 大圣已识别
-[模拟声源定位] 声音位于 -60°（左侧）
-[模拟舵机] 从 90° 旋转到 30°
+[声源跟踪会话] 已创建 remaining=10s timeout=10s
 keyword=大圣
 ```
+
+麦克风模式下，关键词命中会创建声源跟踪会话。会话存活期间，VAD 每次感知
+到人声都会触发模拟声源定位和舵机转向，同时重新计算无人声超时；连续无人声
+达到配置时长后会话结束，后续人声不再触发跟踪，直到再次命中关键词。
 
 ## 说明
 

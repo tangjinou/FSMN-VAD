@@ -11,9 +11,9 @@
 //                        │    有人声 ↓
 //                        └──────────► KWS kws_engine.*
 //                                         │
-//                                    命中 → KeywordAction（可扩展）
-//                                         │
-//                                    模拟声源定位 → 模拟舵机转向
+//                                    命中 → 创建跟踪会话
+//                                               │
+//                         会话内有人声 → 刷新超时 → 定位 → 舵机转向
 //
 // 模块职责：
 //   common.*           共享常量 / Options / Detection / 字符串工具
@@ -21,7 +21,7 @@
 //   vad_detector.*     Silero 人声门控
 //   kws_engine.*       Fbank + ONNX + CTC 关键词识别
 //   keyword_action.*         命中后的动作链（打印 / 组合 / 工厂）
-//   sound_tracking_action.*  模拟声源定位 + 舵机转向
+//   sound_tracking_action.*  限时会话 + 模拟声源定位和舵机转向
 //   main.cc                  命令行、WAV 读取、把上面模块串起来
 //
 // onnx_model/：
@@ -55,6 +55,7 @@ void PrintUsage(const char* prog) {
   std::cout << "用法: " << prog
             << " [--keyword 大圣,悟空] [--model-dir DIR] [--device DEVICE]\n"
             << "       [--min-score 0.15] [--vad-threshold 0.5]\n"
+            << "       [--session-timeout 10]\n"
             << "       [--verbose] [--wav FILE.wav]\n";
 }
 
@@ -82,6 +83,8 @@ bool ParseArgs(int argc, char** argv, Options* opt) {
       opt->min_score = std::stof(need("--min-score"));
     } else if (arg == "--vad-threshold") {
       opt->vad_threshold = std::stof(need("--vad-threshold"));
+    } else if (arg == "--session-timeout") {
+      opt->session_timeout_seconds = std::stoi(need("--session-timeout"));
     } else if (arg == "--verbose") {
       opt->verbose = true;
     } else if (arg == "--wav") {
@@ -92,7 +95,8 @@ bool ParseArgs(int argc, char** argv, Options* opt) {
     }
   }
   return !opt->keywords.empty() && !opt->model_dir.empty() &&
-         opt->vad_threshold > 0.0f && opt->vad_threshold < 1.0f;
+         opt->vad_threshold > 0.0f && opt->vad_threshold < 1.0f &&
+         opt->session_timeout_seconds > 0;
 }
 
 // =============================================================================
@@ -203,6 +207,9 @@ int RunMicrophone(VadDetector* vad, KwsEngine* engine, KeywordAction* action,
                 << " active=" << voice.speech_active
                 << " max_probability=" << voice.max_probability << "\n";
     }
+
+    // 每个音频窗口都上报 VAD 状态：会话可及时过期，人声可驱动跟踪。
+    action->OnVoiceActivity(voice.has_speech);
 
     // 门控：静音不跑 Fbank / FSMN-KWS
     if (!voice.has_speech && !voice.speech_active) continue;

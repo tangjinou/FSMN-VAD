@@ -1,5 +1,8 @@
 #pragma once
 
+#include <chrono>
+#include <memory>
+
 #include "keyword_action.h"
 
 // =============================================================================
@@ -19,18 +22,40 @@ class SimulatedSoundLocator {
 // 模拟舵机：把声源方向映射到 [0, 180] 度的舵机角度。
 class SimulatedServo {
  public:
-  void RotateToDirection(int direction_degrees);
+  int Angle() const { return angle_degrees_; }
+  // 返回旋转后的舵机角度 [0, 180]。
+  int RotateToDirection(int direction_degrees);
 
  private:
   int angle_degrees_ = 90;
 };
 
-// 关键词命中后模拟声源定位，并驱动模拟舵机朝向声源。
-class SoundTrackingKeywordAction : public KeywordAction {
+// 关键词命中后创建的会话；每次人声都会刷新空闲超时并触发跟踪。
+class SoundTrackingSession {
  public:
-  void OnKeyword(const KeywordHit& hit) override;
+  explicit SoundTrackingSession(std::chrono::seconds idle_timeout);
+
+  bool IsExpired() const;
+  std::chrono::seconds IdleTimeout() const;
+  std::chrono::seconds Remaining() const;
+  void OnVoice();
 
  private:
+  std::chrono::seconds idle_timeout_;
+  std::chrono::steady_clock::time_point expires_at_;
   SimulatedSoundLocator locator_;
   SimulatedServo servo_;
+};
+
+// 管理声源跟踪会话：关键词创建会话，VAD 状态驱动会话行为。
+class SoundTrackingKeywordAction : public KeywordAction {
+ public:
+  explicit SoundTrackingKeywordAction(std::chrono::seconds idle_timeout);
+
+  void OnKeyword(const KeywordHit& hit) override;
+  void OnVoiceActivity(bool has_speech) override;
+
+ private:
+  std::chrono::seconds idle_timeout_;
+  std::unique_ptr<SoundTrackingSession> session_;
 };
