@@ -12,14 +12,17 @@
 //                        └──────────► KWS kws_engine.*
 //                                         │
 //                                    命中 → KeywordAction（可扩展）
+//                                         │
+//                                    模拟声源定位 → 模拟舵机转向
 //
 // 模块职责：
 //   common.*           共享常量 / Options / Detection / 字符串工具
 //   mic_input.*        PortAudio 采集 + 滑动窗
 //   vad_detector.*     Silero 人声门控
 //   kws_engine.*       Fbank + ONNX + CTC 关键词识别
-//   keyword_action.*   命中后的动作（打印 / 未来 GPIO·上报 等）
-//   main.cc            命令行、WAV 读取、把上面模块串起来
+//   keyword_action.*         命中后的动作链（打印 / 组合 / 工厂）
+//   sound_tracking_action.*  模拟声源定位 + 舵机转向
+//   main.cc                  命令行、WAV 读取、把上面模块串起来
 //
 // onnx_model/：
 //   silero_vad.onnx / fsmn_kws.onnx / am.mvn.dim80_l2r2

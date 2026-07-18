@@ -3,10 +3,12 @@
 #include <iostream>
 #include <utility>
 
+#include "sound_tracking_action.h"
+
 ConsoleKeywordAction::ConsoleKeywordAction(bool verbose) : verbose_(verbose) {}
 
 void ConsoleKeywordAction::OnKeyword(const KeywordHit& hit) {
-  std::cout << "已识别\n";
+  std::cout << hit.keyword << "已识别\n";
   if (verbose_) {
     std::cout << "[debug] keyword=" << hit.keyword << " score=" << hit.score
               << "\n";
@@ -30,5 +32,6 @@ std::unique_ptr<KeywordAction> CreateDefaultKeywordAction(
   //   list->Add(std::make_unique<MqttKeywordAction>(...));
   auto list = std::make_unique<KeywordActionList>();
   list->Add(std::make_unique<ConsoleKeywordAction>(options.verbose));
+  list->Add(std::make_unique<SoundTrackingKeywordAction>());
   return list;
 }

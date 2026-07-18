@@ -76,7 +76,9 @@ cmake --build build --target run_test
 预期输出包含：
 
 ```text
-已识别
+大圣已识别
+[模拟声源定位] 声音位于 -60°（左侧）
+[模拟舵机] 从 90° 旋转到 30°
 keyword=大圣
 ```
 

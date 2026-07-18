@@ -47,7 +47,8 @@ set(APP_SOURCES
   mic_input.cc
   vad_detector.cc
   kws_engine.cc
-  keyword_action.cc)
+  keyword_action.cc
+  sound_tracking_action.cc)
 
 add_executable(mic_demo ${APP_SOURCES} ${KNF_SOURCES})
 
