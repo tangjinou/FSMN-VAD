@@ -59,14 +59,38 @@ int SimulatedSoundLocator::DetectDirection() {
   return direction;
 }
 
-int SimulatedServo::RotateToDirection(int direction_degrees) {
-  const int target_angle = std::clamp(direction_degrees + 90, 0, 180);
-  if (target_angle != angle_degrees_) {
-    // 模拟舵机机械旋转耗时。
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    angle_degrees_ = target_angle;
-  }
+SimulatedServo::~SimulatedServo() { JoinWorker(); }
+
+void SimulatedServo::JoinWorker() {
+  if (worker_.joinable()) worker_.join();
+}
+
+int SimulatedServo::Angle() const {
+  std::lock_guard<std::mutex> lock(mutex_);
   return angle_degrees_;
+}
+
+bool SimulatedServo::IsRotating() const { return rotating_.load(); }
+
+void SimulatedServo::RotateToDirectionAsync(int direction_degrees) {
+  const int target_angle = std::clamp(direction_degrees + 90, 0, 180);
+
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (target_angle == angle_degrees_ || rotating_.load()) return;
+    rotating_.store(true);
+  }
+
+  JoinWorker();
+  worker_ = std::thread([this, target_angle] {
+    // 模拟舵机机械旋转耗时；在后台执行，避免堵住 VAD/会话超时计时。
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      angle_degrees_ = target_angle;
+    }
+    rotating_.store(false);
+  });
 }
 
 SoundTrackingSession::SoundTrackingSession(std::chrono::seconds idle_timeout)
@@ -91,13 +115,18 @@ std::chrono::seconds SoundTrackingSession::Remaining() const {
 }
 
 void SoundTrackingSession::OnVoice() {
+  // 人声总是按墙钟刷新空闲超时，保证停说后约 timeout 秒结束。
   expires_at_ = std::chrono::steady_clock::now() + idle_timeout_;
+
+  // 舵机旋转期间只续期，不叠加新的定位/旋转，避免主循环被拖慢。
+  if (servo_.IsRotating()) return;
+
   const int direction = locator_.DetectDirection();
   const int from_angle = servo_.Angle();
   const int to_angle = std::clamp(direction + 90, 0, 180);
   PrintLocator(direction, Remaining(), idle_timeout_);
   PrintServo(from_angle, to_angle, Remaining(), idle_timeout_);
-  servo_.RotateToDirection(direction);
+  servo_.RotateToDirectionAsync(direction);
 }
 
 SoundTrackingKeywordAction::SoundTrackingKeywordAction(

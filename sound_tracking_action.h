@@ -1,7 +1,10 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <memory>
+#include <mutex>
+#include <thread>
 
 #include "keyword_action.h"
 
@@ -20,14 +23,27 @@ class SimulatedSoundLocator {
 };
 
 // 模拟舵机：把声源方向映射到 [0, 180] 度的舵机角度。
+// 旋转在后台线程 sleep 1 秒，不阻塞识别主循环。
 class SimulatedServo {
  public:
-  int Angle() const { return angle_degrees_; }
-  // 返回旋转后的舵机角度 [0, 180]。
-  int RotateToDirection(int direction_degrees);
+  SimulatedServo() = default;
+  ~SimulatedServo();
+
+  SimulatedServo(const SimulatedServo&) = delete;
+  SimulatedServo& operator=(const SimulatedServo&) = delete;
+
+  int Angle() const;
+  bool IsRotating() const;
+  // 非阻塞：若目标角变化且当前未在旋转，则后台启动 1 秒旋转。
+  void RotateToDirectionAsync(int direction_degrees);
 
  private:
+  void JoinWorker();
+
+  mutable std::mutex mutex_;
   int angle_degrees_ = 90;
+  std::atomic<bool> rotating_{false};
+  std::thread worker_;
 };
 
 // 关键词命中后创建的会话；每次人声都会刷新空闲超时并触发跟踪。
